@@ -3,37 +3,80 @@
     {
       "name": "Certificate of Appreciation",
       "photos": [
-        { "src": "/certificates/appreciation-1.jpeg" },
-        { "src": "/certificates/appreciation-2.jpeg" },
-        { "src": "/certificates/appreciation-3.jpeg" },
-        { "src": "/certificates/appreciation-4.jpeg" },
-        { "src": "/certificates/appreciation-5.jpeg" },
-        { "src": "/certificates/appreciation-6.jpeg" },
-        { "src": "/certificates/appreciation-7.jpeg" },
-        { "src": "/certificates/appreciation-8.jpeg" },
-        { "src": "/certificates/appreciation-9.jpeg" }
+        {
+          "src": "/certificates/appreciation-1.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-2.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-3.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-4.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-5.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-6.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-7.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-8.jpeg"
+        },
+        {
+          "src": "/certificates/appreciation-9.jpeg"
+        }
       ]
     },
     {
       "name": "Professional Development",
       "photos": [
-        { "src": "/certificates/dev-1.jpeg" },
-        { "src": "/certificates/dev-2.jpeg" },
-        { "src": "/certificates/dev-3.jpeg" },
-        { "src": "/certificates/dev-4.jpeg" },
-        { "src": "/certificates/dev-5.jpeg" },
-        { "src": "/certificates/dev-6.jpeg" },
-        { "src": "/certificates/dev-7.jpeg" }
+        {
+          "src": "/certificates/dev-1.jpeg"
+        },
+        {
+          "src": "/certificates/dev-2.jpeg"
+        },
+        {
+          "src": "/certificates/dev-3.jpeg"
+        },
+        {
+          "src": "/certificates/dev-4.jpeg"
+        },
+        {
+          "src": "/certificates/dev-5.jpeg"
+        },
+        {
+          "src": "/certificates/dev-6.jpeg"
+        },
+        {
+          "src": "/certificates/dev-7.jpeg"
+        }
       ]
     },
     {
       "name": "Recommendation Letters",
       "photos": [
-        { "src": "/certificates/rec-1.png" },
-        { "src": "/certificates/rec-2.png" },
-        { "src": "/certificates/rec-3.png" },
-        { "src": "/certificates/rec-4.png" },
-        { "src": "/certificates/rec-two-1.png", "gallery": "/certificates/rec-two-1.png,/certificates/rec-two-2.png" }
+        {
+          "src": "/certificates/rec-1.png"
+        },
+        {
+          "src": "/certificates/rec-2.png"
+        },
+        {
+          "src": "/certificates/rec-3.png"
+        },
+        {
+          "src": "/certificates/rec-4.png"
+        },
+        {
+          "src": "/certificates/rec-two-1.png",
+          "gallery": "/certificates/rec-two-1.png,/certificates/rec-two-2.png"
+        }
       ]
     }
   ]
