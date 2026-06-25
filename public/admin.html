@@ -8,12 +8,14 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3ef; color: #1c1917; }
 .login { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-.login-box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); width: 360px; }
+.login-box { background: #fff; padding: 40px; border-radius: 12px; width: 360px; }
 .login-box h1 { font-size: 22px; margin-bottom: 24px; text-align: center; }
 .login-box input { width: 100%; padding: 12px 16px; font-size: 16px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 16px; }
 .login-box button { width: 100%; padding: 12px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
 .login-box button:hover { background: #333; }
+.login-box button:disabled { opacity: 0.5; cursor: not-allowed; }
 .login-box .error { color: #d32f2f; font-size: 14px; margin-top: 8px; text-align: center; }
+.login-box .hint { font-size: 13px; color: #78716c; text-align: center; margin-top: 16px; }
 .hidden { display: none; }
 .admin { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
 .admin h1 { font-size: 28px; margin-bottom: 32px; }
@@ -27,7 +29,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .btn-save { padding: 14px 32px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: block; width: 100%; }
 .btn-save:hover { background: #333; }
 .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
-.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1c1917; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1c1917; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s; z-index: 100; }
 .toast.show { opacity: 1; }
 </style>
 </head>
@@ -37,8 +39,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="login-box">
     <h1>Admin</h1>
     <input type="password" id="password" placeholder="Password" onkeydown="if(event.key==='Enter') login()">
-    <button onclick="login()">Login</button>
+    <button id="loginBtn" onclick="login()">Login</button>
     <div class="error" id="loginError"></div>
+    <div class="hint">Enter password and click Login</div>
   </div>
 </div>
 
@@ -51,7 +54,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div id="toast" class="toast"></div>
 
 <script>
-const PASSWORD_KEY = 'admin_pass'
 const FILES = [
   'src/content/hero.json',
   'src/content/about.json',
@@ -73,89 +75,111 @@ function showToast(msg) {
 async function login() {
   const pw = document.getElementById('password').value
   if (!pw) return
-  localStorage.setItem(PASSWORD_KEY, pw)
-  document.getElementById('loginError').textContent = ''
+
+  const btn = document.getElementById('loginBtn')
+  const err = document.getElementById('loginError')
+  btn.disabled = true
+  btn.textContent = 'Loading...'
+  err.textContent = ''
+
   try {
+    // First validate the password by calling the function
+    const testRes = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw, files: [] })
+    })
+
+    if (testRes.status === 401) {
+      err.textContent = 'Wrong password'
+      btn.disabled = false
+      btn.textContent = 'Login'
+      return
+    }
+
+    if (!testRes.ok) {
+      throw new Error('Function error: ' + testRes.status)
+    }
+
+    // Password is correct, now load content
+    localStorage.setItem('admin_pass', pw)
     await loadEditor()
-  } catch {
-    document.getElementById('loginError').textContent = 'Wrong password'
-    localStorage.removeItem(PASSWORD_KEY)
+    document.getElementById('login').classList.add('hidden')
+    document.getElementById('admin').classList.remove('hidden')
+  } catch (e) {
+    err.textContent = 'Network error — check console: ' + e.message
+    btn.disabled = false
+    btn.textContent = 'Login'
   }
 }
 
 async function loadEditor() {
   const promises = FILES.map(f =>
-    fetch(BASE + f).then(r => r.json()).then(d => ({ path: f, data: d }))
+    fetch(BASE + f).then(r => {
+      if (!r.ok) throw new Error('Failed to fetch ' + f)
+      return r.json()
+    }).then(d => ({ path: f, data: d }))
   )
   const results = await Promise.all(promises)
   results.forEach(r => { allData[r.path] = r.data })
-
-  document.getElementById('login').classList.add('hidden')
-  document.getElementById('admin').classList.remove('hidden')
   renderForms()
 }
 
-function renderForms() {
-  const container = document.getElementById('forms')
-  container.innerHTML = ''
-
-  // Hero
-  const hero = allData['src/content/hero.json']
-  container.innerHTML += sectionHTML('Hero', `
-    <div class="field"><label>Name</label><input id="hero_name" value="${escape(hero.name)}"></div>
-    <div class="field"><label>Subtitle</label><input id="hero_subtitle" value="${escape(hero.subtitle)}"></div>
-    <div class="field"><label>Tags (comma-separated)</label><input id="hero_tags" value="${escape(hero.tags.join(', '))}"></div>
-  `)
-
-  // About
-  const about = allData['src/content/about.json']
-  container.innerHTML += sectionHTML('About', about.paragraphs.map((p, i) => `
-    <div class="field"><label>Paragraph ${i+1} (**bold** for highlight)</label><textarea class="tall" id="about_${i}">${escape(p)}</textarea></div>
-  `).join(''))
-
-  // Experience
-  const exp = allData['src/content/experience.json']
-  container.innerHTML += sectionHTML('Experience', exp.map((item, i) => `
-    <div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      <div class="field"><label>Period</label><input id="exp_${i}_period" value="${escape(item.period)}"></div>
-      <div class="field"><label>Title</label><input id="exp_${i}_title" value="${escape(item.title)}"></div>
-      <div class="field"><label>Subtitle</label><input id="exp_${i}_subtitle" value="${escape(item.subtitle)}"></div>
-      <div class="field"><label>Description</label><textarea class="tall" id="exp_${i}_desc">${escape(item.description)}</textarea></div>
-    </div>
-  `).join(''))
-
-  // Education
-  const edu = allData['src/content/education.json']
-  container.innerHTML += sectionHTML('Education', edu.map((item, i) => `
-    <div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      <div class="field"><label>Period</label><input id="edu_${i}_period" value="${escape(item.period)}"></div>
-      <div class="field"><label>Title</label><input id="edu_${i}_title" value="${escape(item.title)}"></div>
-      <div class="field"><label>Subtitle</label><input id="edu_${i}_subtitle" value="${escape(item.subtitle)}"></div>
-    </div>
-  `).join(''))
-
-  // Languages
-  const lang = allData['src/content/languages.json']
-  container.innerHTML += sectionHTML('Languages', `
-    <div class="field"><label>Languages (comma-separated)</label><input id="lang_items" value="${escape(lang.items.join(', '))}"></div>
-  `)
-
-  // Contact
-  const contact = allData['src/content/contact.json']
-  container.innerHTML += sectionHTML('Contact', `
-    <div class="field"><label>Email</label><input id="contact_email" value="${escape(contact.email)}"></div>
-    <div class="field"><label>Phone</label><input id="contact_phone" value="${escape(contact.phone)}"></div>
-    <div class="field"><label>Location</label><input id="contact_location" value="${escape(contact.location)}"></div>
-  `)
-}
-
-function sectionHTML(title, fields) {
-  return `<div class="section"><h2>${title}</h2>${fields}</div>`
-}
-
-function escape(s) {
+function esc(s) {
   if (typeof s !== 'string') s = String(s || '')
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function renderForms() {
+  const c = document.getElementById('forms')
+  c.innerHTML = ''
+
+  const hero = allData['src/content/hero.json']
+  c.innerHTML += section('Hero', `
+    <div class="field"><label>Name</label><input id="hero_name" value="${esc(hero.name)}"></div>
+    <div class="field"><label>Subtitle</label><input id="hero_subtitle" value="${esc(hero.subtitle)}"></div>
+    <div class="field"><label>Tags (comma-separated)</label><input id="hero_tags" value="${esc(hero.tags.join(', '))}"></div>
+  `)
+
+  const about = allData['src/content/about.json']
+  c.innerHTML += section('About', about.paragraphs.map((p, i) =>
+    `<div class="field"><label>Paragraph ${i+1} (**bold** for highlight)</label><textarea class="tall" id="about_${i}">${esc(p)}</textarea></div>`
+  ).join(''))
+
+  const exp = allData['src/content/experience.json']
+  c.innerHTML += section('Experience', exp.map((item, i) =>
+    `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
+      <div class="field"><label>Period</label><input id="exp_${i}_period" value="${esc(item.period)}"></div>
+      <div class="field"><label>Title</label><input id="exp_${i}_title" value="${esc(item.title)}"></div>
+      <div class="field"><label>Subtitle</label><input id="exp_${i}_subtitle" value="${esc(item.subtitle)}"></div>
+      <div class="field"><label>Description</label><textarea class="tall" id="exp_${i}_desc">${esc(item.description)}</textarea></div>
+    </div>`
+  ).join(''))
+
+  const edu = allData['src/content/education.json']
+  c.innerHTML += section('Education', edu.map((item, i) =>
+    `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
+      <div class="field"><label>Period</label><input id="edu_${i}_period" value="${esc(item.period)}"></div>
+      <div class="field"><label>Title</label><input id="edu_${i}_title" value="${esc(item.title)}"></div>
+      <div class="field"><label>Subtitle</label><input id="edu_${i}_subtitle" value="${esc(item.subtitle)}"></div>
+    </div>`
+  ).join(''))
+
+  const lang = allData['src/content/languages.json']
+  c.innerHTML += section('Languages', `
+    <div class="field"><label>Languages (comma-separated)</label><input id="lang_items" value="${esc(lang.items.join(', '))}"></div>
+  `)
+
+  const contact = allData['src/content/contact.json']
+  c.innerHTML += section('Contact', `
+    <div class="field"><label>Email</label><input id="contact_email" value="${esc(contact.email)}"></div>
+    <div class="field"><label>Phone</label><input id="contact_phone" value="${esc(contact.phone)}"></div>
+    <div class="field"><label>Location</label><input id="contact_location" value="${esc(contact.location)}"></div>
+  `)
+}
+
+function section(title, fields) {
+  return `<div class="section"><h2>${title}</h2>${fields}</div>`
 }
 
 async function saveAll() {
@@ -193,7 +217,7 @@ async function saveAll() {
   contact.phone = document.getElementById('contact_phone').value
   contact.location = document.getElementById('contact_location').value
 
-  const pw = localStorage.getItem(PASSWORD_KEY)
+  const pw = localStorage.getItem('admin_pass')
   const files = Object.entries(allData).map(([path, content]) => ({
     path, content: JSON.stringify(content, null, 2) + '\n'
   }))
@@ -201,6 +225,7 @@ async function saveAll() {
   try {
     const res = await fetch('/.netlify/functions/save', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw, files })
     })
     const result = await res.json()
@@ -214,12 +239,6 @@ async function saveAll() {
   }
 
   btn.disabled = false; btn.textContent = 'Save All Changes'
-}
-
-// Auto-login if password saved
-if (localStorage.getItem(PASSWORD_KEY)) {
-  document.getElementById('password').value = localStorage.getItem(PASSWORD_KEY)
-  login()
 }
 </script>
 </body>
