@@ -26,11 +26,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .field input, .field textarea { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; }
 .field textarea { min-height: 60px; resize: vertical; }
 .field textarea.tall { min-height: 120px; }
-.btn-save { padding: 14px 32px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: block; width: 100%; }
+.btn-save { padding: 14px 32px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: block; width: 100%; margin-top: 8px; }
 .btn-save:hover { background: #333; }
 .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 6px 14px; font-size: 13px; background: #1c1917; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+.btn-sm:hover { background: #333; }
+.btn-sm.danger { background: #d32f2f; }
+.btn-sm.danger:hover { background: #b71c1c; }
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1c1917; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s; z-index: 100; }
 .toast.show { opacity: 1; }
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.photo-item { position: relative; border-radius: 6px; overflow: hidden; border: 1px solid #eee; aspect-ratio: 3/4; }
+.photo-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-item .del-btn { position: absolute; top: 4px; right: 4px; background: rgba(211,47,47,0.85); color: #fff; border: none; border-radius: 4px; width: 22px; height: 22px; font-size: 14px; cursor: pointer; line-height: 22px; text-align: center; padding: 0; }
+.photo-item .del-btn:hover { background: #b71c1c; }
+.upload-area { border: 2px dashed #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; color: #78716c; font-size: 14px; margin-bottom: 8px; transition: border-color 0.2s; }
+.upload-area:hover { border-color: #a07850; }
+.upload-area input { display: none; }
+.pending-badge { display: inline-block; background: #ff9800; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
 </style>
 </head>
 <body>
@@ -48,7 +61,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 <div id="admin" class="admin hidden">
   <h1>Edit Content</h1>
   <div id="forms"></div>
+  <div id="photos-section"></div>
   <button class="btn-save" id="saveBtn" onclick="saveAll()">Save All Changes</button>
+  <button class="btn-save" id="photoSaveBtn" onclick="savePhotos()" style="background:#a07850;margin-top:12px">Save Photos</button>
 </div>
 
 <div id="toast" class="toast"></div>
@@ -64,7 +79,9 @@ const FILES = [
   'src/content/contact.json'
 ]
 const BASE = 'https://raw.githubusercontent.com/khamid9/portfolio/main/'
+const PHOTO_BASE = 'https://raw.githubusercontent.com/khamid9/portfolio/main/public'
 let allData = {}
+let pendingUploads = {} // { "cat-index_photo-index" : { file, path } }
 
 function showToast(msg) {
   const t = document.getElementById('toast')
@@ -75,50 +92,36 @@ function showToast(msg) {
 async function login() {
   const pw = document.getElementById('password').value.trim()
   if (!pw) return
-
   const btn = document.getElementById('loginBtn')
   const err = document.getElementById('loginError')
-  btn.disabled = true
-  btn.textContent = 'Loading...'
-  err.textContent = ''
+  btn.disabled = true; btn.textContent = 'Loading...'; err.textContent = ''
 
   try {
-    // First validate the password by calling the function
     const testRes = await fetch('/.netlify/functions/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw, files: [] })
     })
-
     if (testRes.status === 401) {
       err.textContent = 'Wrong password'
-      btn.disabled = false
-      btn.textContent = 'Login'
+      btn.disabled = false; btn.textContent = 'Login'
       return
     }
-
-    if (!testRes.ok) {
-      throw new Error('Function error: ' + testRes.status)
-    }
-
-    // Password is correct, now load content
+    if (!testRes.ok) throw new Error('Function error: ' + testRes.status)
     localStorage.setItem('admin_pass', pw)
     await loadEditor()
+    renderPhotos()
     document.getElementById('login').classList.add('hidden')
     document.getElementById('admin').classList.remove('hidden')
   } catch (e) {
-    err.textContent = 'Network error — check console: ' + e.message
-    btn.disabled = false
-    btn.textContent = 'Login'
+    err.textContent = 'Network error: ' + e.message
+    btn.disabled = false; btn.textContent = 'Login'
   }
 }
 
 async function loadEditor() {
   const promises = FILES.map(f =>
-    fetch(BASE + f).then(r => {
-      if (!r.ok) throw new Error('Failed to fetch ' + f)
-      return r.json()
-    }).then(d => ({ path: f, data: d }))
+    fetch(BASE + f).then(r => { if (!r.ok) throw new Error('Failed ' + f); return r.json() }).then(d => ({ path: f, data: d }))
   )
   const results = await Promise.all(promises)
   results.forEach(r => { allData[r.path] = r.data })
@@ -128,6 +131,10 @@ async function loadEditor() {
 function esc(s) {
   if (typeof s !== 'string') s = String(s || '')
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+}
+
+function section(title, fields) {
+  return `<div class="section"><h2>${title}</h2>${fields}</div>`
 }
 
 function renderForms() {
@@ -140,36 +147,25 @@ function renderForms() {
     <div class="field"><label>Subtitle</label><input id="hero_subtitle" value="${esc(hero.subtitle)}"></div>
     <div class="field"><label>Tags (comma-separated)</label><input id="hero_tags" value="${esc(hero.tags.join(', '))}"></div>
   `)
-
   const about = allData['src/content/about.json']
   c.innerHTML += section('About', about.paragraphs.map((p, i) =>
     `<div class="field"><label>Paragraph ${i+1} (**bold** for highlight)</label><textarea class="tall" id="about_${i}">${esc(p)}</textarea></div>`
   ).join(''))
-
   const exp = allData['src/content/experience.json']
   c.innerHTML += section('Experience', exp.map((item, i) =>
     `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      <div class="field"><label>Period</label><input id="exp_${i}_period" value="${esc(item.period)}"></div>
-      <div class="field"><label>Title</label><input id="exp_${i}_title" value="${esc(item.title)}"></div>
-      <div class="field"><label>Subtitle</label><input id="exp_${i}_subtitle" value="${esc(item.subtitle)}"></div>
+      ${['period','title','subtitle'].map(f => `<div class="field"><label>${f[0].toUpperCase()+f.slice(1)}</label><input id="exp_${i}_${f}" value="${esc(item[f])}"></div>`).join('')}
       <div class="field"><label>Description</label><textarea class="tall" id="exp_${i}_desc">${esc(item.description)}</textarea></div>
     </div>`
   ).join(''))
-
   const edu = allData['src/content/education.json']
   c.innerHTML += section('Education', edu.map((item, i) =>
     `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      <div class="field"><label>Period</label><input id="edu_${i}_period" value="${esc(item.period)}"></div>
-      <div class="field"><label>Title</label><input id="edu_${i}_title" value="${esc(item.title)}"></div>
-      <div class="field"><label>Subtitle</label><input id="edu_${i}_subtitle" value="${esc(item.subtitle)}"></div>
+      ${['period','title','subtitle'].map(f => `<div class="field"><label>${f[0].toUpperCase()+f.slice(1)}</label><input id="edu_${i}_${f}" value="${esc(item[f])}"></div>`).join('')}
     </div>`
   ).join(''))
-
   const lang = allData['src/content/languages.json']
-  c.innerHTML += section('Languages', `
-    <div class="field"><label>Languages (comma-separated)</label><input id="lang_items" value="${esc(lang.items.join(', '))}"></div>
-  `)
-
+  c.innerHTML += section('Languages', `<div class="field"><label>Languages (comma-separated)</label><input id="lang_items" value="${esc(lang.items.join(', '))}"></div>`)
   const contact = allData['src/content/contact.json']
   c.innerHTML += section('Contact', `
     <div class="field"><label>Email</label><input id="contact_email" value="${esc(contact.email)}"></div>
@@ -178,8 +174,74 @@ function renderForms() {
   `)
 }
 
-function section(title, fields) {
-  return `<div class="section"><h2>${title}</h2>${fields}</div>`
+function renderPhotos() {
+  const cert = allData['src/content/certificates.json']
+  const container = document.getElementById('photos-section')
+  let html = ''
+
+  cert.categories.forEach((cat, ci) => {
+    html += `<div class="section"><h2>${esc(cat.name)} (${cat.photos.length})</h2><div class="photo-grid" id="pg_${ci}">`
+    cat.photos.forEach((photo, pi) => {
+      const src = photo.src.replace('/certificates/', '')
+      html += `<div class="photo-item" id="pi_${ci}_${pi}"><img src="${PHOTO_BASE}/certificates/${src}"><button class="del-btn" onclick="deletePhoto(${ci},${pi})">×</button></div>`
+    })
+    html += `</div><div class="upload-area" onclick="document.getElementById('fu_${ci}').click()">Click to add photos to "${esc(cat.name)}"</div>
+    <input type="file" id="fu_${ci}" accept="image/*" multiple onchange="uploadPhotos(${ci}, this.files)" style="display:none">
+    <div id="pending_${ci}"></div></div>`
+  })
+  container.innerHTML = html
+}
+
+// Delete a photo: remove from certificates.json + schedule file deletion
+function deletePhoto(ci, pi) {
+  const cert = allData['src/content/certificates.json']
+  const photo = cert.categories[ci].photos[pi]
+  const filename = photo.src.replace('/certificates/', '')
+
+  if (!confirm(`Delete ${filename}?`)) return
+
+  cert.categories[ci].photos.splice(pi, 1)
+
+  // Mark for deletion on GitHub
+  if (!window._deletes) window._deletes = []
+  window._deletes.push({ path: `public/certificates/${filename}` })
+
+  renderPhotos()
+  showToast(`Marked "${filename}" for deletion`)
+}
+
+// Upload photos
+function uploadPhotos(ci, files) {
+  const cert = allData['src/content/certificates.json']
+
+  for (const file of files) {
+    const ext = file.name.split('.').pop().toLowerCase()
+    const reader = new FileReader()
+    reader.onload = function(e) {
+      const base64 = e.target.result.split(',')[1]
+      const filename = file.name
+
+      // Show pending indicator
+      const pd = document.getElementById('pending_' + ci)
+      const el = document.createElement('span')
+      el.className = 'pending-badge'
+      el.textContent = `+ ${filename}`
+      pd.appendChild(el)
+
+      // Add to certificates.json
+      cert.categories[ci].photos.push({ src: `/certificates/${filename}` })
+
+      // Schedule upload
+      if (!window._uploads) window._uploads = {}
+      window._uploads[`public/certificates/${filename}`] = { content: base64, encoding: 'base64' }
+
+      showToast(`Added "${filename}"`)
+
+      // Refresh photo grid
+      renderPhotos()
+    }
+    reader.readAsDataURL(file)
+  }
 }
 
 async function saveAll() {
@@ -196,17 +258,13 @@ async function saveAll() {
 
   const exp = allData['src/content/experience.json']
   exp.forEach((item, i) => {
-    item.period = document.getElementById(`exp_${i}_period`).value
-    item.title = document.getElementById(`exp_${i}_title`).value
-    item.subtitle = document.getElementById(`exp_${i}_subtitle`).value
+    ;['period','title','subtitle'].forEach(f => { item[f] = document.getElementById(`exp_${i}_${f}`).value })
     item.description = document.getElementById(`exp_${i}_desc`).value
   })
 
   const edu = allData['src/content/education.json']
   edu.forEach((item, i) => {
-    item.period = document.getElementById(`edu_${i}_period`).value
-    item.title = document.getElementById(`edu_${i}_title`).value
-    item.subtitle = document.getElementById(`edu_${i}_subtitle`).value
+    ;['period','title','subtitle'].forEach(f => { item[f] = document.getElementById(`edu_${i}_${f}`).value })
   })
 
   const lang = allData['src/content/languages.json']
@@ -230,15 +288,55 @@ async function saveAll() {
     })
     const result = await res.json()
     if (res.ok) {
-      showToast('Saved! Site will update in ~1 minute')
+      showToast('Content saved! Site will update in ~1 minute')
     } else {
       showToast('Error: ' + (result.error || 'Unknown'))
     }
   } catch (e) {
     showToast('Error: ' + e.message)
   }
-
   btn.disabled = false; btn.textContent = 'Save All Changes'
+}
+
+async function savePhotos() {
+  const btn = document.getElementById('photoSaveBtn')
+  btn.disabled = true; btn.textContent = 'Saving photos...'
+  const pw = (localStorage.getItem('admin_pass') || '').trim()
+
+  // First save the updated certificates.json (with deletions)
+  const certFile = [{
+    path: 'src/content/certificates.json',
+    content: JSON.stringify(allData['src/content/certificates.json'], null, 2) + '\n'
+  }]
+
+  // Upload new photos
+  const uploads = Object.entries(window._uploads || {}).map(([path, data]) => ({
+    path, content: data.content, encoding: 'base64'
+  }))
+
+  // Delete marked photos
+  const deletes = window._deletes || []
+
+  const allFiles = [...certFile, ...uploads]
+
+  try {
+    const res = await fetch('/.netlify/functions/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw, files: allFiles, deletes })
+    })
+    const result = await res.json()
+    if (res.ok) {
+      window._uploads = {}
+      window._deletes = []
+      showToast('Photos saved! Site will update in ~1 minute')
+    } else {
+      showToast('Error: ' + (result.error || 'Unknown'))
+    }
+  } catch (e) {
+    showToast('Error: ' + e.message)
+  }
+  btn.disabled = false; btn.textContent = 'Save Photos'
 }
 </script>
 </body>
