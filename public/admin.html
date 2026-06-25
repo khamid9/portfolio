@@ -73,7 +73,7 @@ function showToast(msg) {
 }
 
 async function login() {
-  const pw = document.getElementById('password').value
+  const pw = document.getElementById('password').value.trim()
   if (!pw) return
 
   const btn = document.getElementById('loginBtn')
@@ -217,7 +217,7 @@ async function saveAll() {
   contact.phone = document.getElementById('contact_phone').value
   contact.location = document.getElementById('contact_location').value
 
-  const pw = localStorage.getItem('admin_pass')
+  const pw = (localStorage.getItem('admin_pass') || '').trim()
   const files = Object.entries(allData).map(([path, content]) => ({
     path, content: JSON.stringify(content, null, 2) + '\n'
   }))

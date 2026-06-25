@@ -3,9 +3,10 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' }
   }
 
-  const { password, files } = JSON.parse(event.body)
+  const { password: rawPassword, files } = JSON.parse(event.body)
+  const password = (rawPassword || '').trim()
 
-  if (password !== process.env.ADMIN_PASSWORD) {
+  if (password !== (process.env.ADMIN_PASSWORD || '').trim()) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Wrong password' }) }
   }
 
