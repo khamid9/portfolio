@@ -15,10 +15,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .login-box button:hover { background: #333; }
 .login-box button:disabled { opacity: 0.5; cursor: not-allowed; }
 .login-box .error { color: #d32f2f; font-size: 14px; margin-top: 8px; text-align: center; }
-.login-box .hint { font-size: 13px; color: #78716c; text-align: center; margin-top: 16px; }
 .hidden { display: none; }
 .admin { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
-.admin h1 { font-size: 28px; margin-bottom: 32px; }
+.admin h1 { font-size: 28px; margin-bottom: 8px; }
+.admin .subtitle { color: #78716c; font-size: 14px; margin-bottom: 32px; }
 .section { background: #fff; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
 .section h2 { font-size: 18px; margin-bottom: 16px; color: #a07850; text-transform: uppercase; letter-spacing: 0.1em; }
 .field { margin-bottom: 16px; }
@@ -26,7 +26,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .field input, .field textarea { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; }
 .field textarea { min-height: 60px; resize: vertical; }
 .field textarea.tall { min-height: 120px; }
-.btn-save { padding: 14px 32px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; display: block; width: 100%; margin-top: 8px; }
+.btn-save { padding: 14px 32px; font-size: 16px; background: #1c1917; color: #fff; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
 .btn-save:hover { background: #333; }
 .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-sm { padding: 6px 14px; font-size: 13px; background: #1c1917; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
@@ -43,7 +43,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .upload-area { border: 2px dashed #ddd; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; color: #78716c; font-size: 14px; margin-bottom: 8px; transition: border-color 0.2s; }
 .upload-area:hover { border-color: #a07850; }
 .upload-area input { display: none; }
-.pending-badge { display: inline-block; background: #ff9800; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+.badge { display: inline-block; background: #ff9800; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin: 2px; }
+.avatar-section { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.avatar-section img { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid #eee; }
 </style>
 </head>
 <body>
@@ -54,34 +56,27 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <input type="password" id="password" placeholder="Password" onkeydown="if(event.key==='Enter') login()">
     <button id="loginBtn" onclick="login()">Login</button>
     <div class="error" id="loginError"></div>
-    <div class="hint">Enter password and click Login</div>
   </div>
 </div>
 
 <div id="admin" class="admin hidden">
-  <h1>Edit Content</h1>
+  <h1>Portfolio Admin</h1>
+  <div class="subtitle">Edit text and photos — changes go live in ~1 minute</div>
   <div id="forms"></div>
   <div id="photos-section"></div>
   <button class="btn-save" id="saveBtn" onclick="saveAll()">Save All Changes</button>
-  <button class="btn-save" id="photoSaveBtn" onclick="savePhotos()" style="background:#a07850;margin-top:12px">Save Photos</button>
+  <div style="height:80px"></div>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script>
-const FILES = [
-  'src/content/hero.json',
-  'src/content/about.json',
-  'src/content/experience.json',
-  'src/content/education.json',
-  'src/content/certificates.json',
-  'src/content/languages.json',
-  'src/content/contact.json'
-]
+const FILES = ['hero','about','experience','education','certificates','languages','contact'].map(f => 'src/content/'+f+'.json')
 const BASE = 'https://raw.githubusercontent.com/khamid9/portfolio/main/'
-const PHOTO_BASE = 'https://raw.githubusercontent.com/khamid9/portfolio/main/public'
+const PHOTO_BASE = BASE + 'public'
 let allData = {}
-let pendingUploads = {} // { "cat-index_photo-index" : { file, path } }
+let _uploads = {}
+let _deletes = []
 
 function showToast(msg) {
   const t = document.getElementById('toast')
@@ -95,150 +90,144 @@ async function login() {
   const btn = document.getElementById('loginBtn')
   const err = document.getElementById('loginError')
   btn.disabled = true; btn.textContent = 'Loading...'; err.textContent = ''
-
   try {
-    const testRes = await fetch('/.netlify/functions/save', {
+    const r = await fetch('/.netlify/functions/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pw, files: [] })
     })
-    if (testRes.status === 401) {
-      err.textContent = 'Wrong password'
-      btn.disabled = false; btn.textContent = 'Login'
-      return
-    }
-    if (!testRes.ok) throw new Error('Function error: ' + testRes.status)
+    if (r.status === 401) { err.textContent = 'Wrong password'; btn.disabled = false; btn.textContent = 'Login'; return }
+    if (!r.ok) throw new Error('Status ' + r.status)
     localStorage.setItem('admin_pass', pw)
-    await loadEditor()
-    renderPhotos()
+    await loadAll()
     document.getElementById('login').classList.add('hidden')
     document.getElementById('admin').classList.remove('hidden')
-  } catch (e) {
-    err.textContent = 'Network error: ' + e.message
-    btn.disabled = false; btn.textContent = 'Login'
-  }
+  } catch(e) { err.textContent = 'Error: ' + e.message; btn.disabled = false; btn.textContent = 'Login' }
 }
 
-async function loadEditor() {
+async function loadAll() {
   const promises = FILES.map(f =>
     fetch(BASE + f).then(r => { if (!r.ok) throw new Error('Failed ' + f); return r.json() }).then(d => ({ path: f, data: d }))
   )
   const results = await Promise.all(promises)
   results.forEach(r => { allData[r.path] = r.data })
   renderForms()
+  renderPhotos()
 }
 
 function esc(s) {
   if (typeof s !== 'string') s = String(s || '')
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
-
-function section(title, fields) {
-  return `<div class="section"><h2>${title}</h2>${fields}</div>`
-}
+function sec(title, fields) { return `<div class="section"><h2>${title}</h2>${fields}</div>` }
+function tf(id, label, val, opts = '') { return `<div class="field"><label>${label}</label><input id="${id}" value="${esc(val)}" ${opts}></div>` }
+function ta(id, label, val, tall = true) { return `<div class="field"><label>${label}</label><textarea id="${id}" class="${tall?'tall':''}">${esc(val)}</textarea></div>` }
 
 function renderForms() {
   const c = document.getElementById('forms')
   c.innerHTML = ''
 
-  const hero = allData['src/content/hero.json']
-  c.innerHTML += section('Hero', `
-    <div class="field"><label>Name</label><input id="hero_name" value="${esc(hero.name)}"></div>
-    <div class="field"><label>Subtitle</label><input id="hero_subtitle" value="${esc(hero.subtitle)}"></div>
-    <div class="field"><label>Tags (comma-separated)</label><input id="hero_tags" value="${esc(hero.tags.join(', '))}"></div>
-  `)
-  const about = allData['src/content/about.json']
-  c.innerHTML += section('About', about.paragraphs.map((p, i) =>
-    `<div class="field"><label>Paragraph ${i+1} (**bold** for highlight)</label><textarea class="tall" id="about_${i}">${esc(p)}</textarea></div>`
-  ).join(''))
-  const exp = allData['src/content/experience.json']
-  c.innerHTML += section('Experience', exp.map((item, i) =>
-    `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      ${['period','title','subtitle'].map(f => `<div class="field"><label>${f[0].toUpperCase()+f.slice(1)}</label><input id="exp_${i}_${f}" value="${esc(item[f])}"></div>`).join('')}
-      <div class="field"><label>Description</label><textarea class="tall" id="exp_${i}_desc">${esc(item.description)}</textarea></div>
+  // Hero
+  const h = allData['src/content/hero.json']
+  let heroHTML = tf('hero_name','Full Name', h.name) + tf('hero_subtitle','Subtitle', h.subtitle) + tf('hero_tags','Tags (comma-separated)', h.tags.join(', '))
+  h.stats.forEach((s, i) => {
+    heroHTML += `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <div style="flex:1">${tf('hero_stat_n_'+i, 'Stat '+(i+1)+' number', s.number)}</div>
+      <div style="flex:2">${tf('hero_stat_l_'+i, '', s.label)}</div>
     </div>`
-  ).join(''))
+  })
+  c.innerHTML += sec('Hero', heroHTML)
+
+  // Avatar
+  const avatarHTML = `<div class="avatar-section">
+    <img src="${PHOTO_BASE}/photo.jpeg?t=${Date.now()}">
+    <div><button class="btn-sm" onclick="document.getElementById('avatarInput').click()">Change Photo</button>
+    <input type="file" id="avatarInput" accept="image/jpeg" style="display:none" onchange="uploadAvatar(this.files)">
+    <div style="font-size:12px;color:#78716c;margin-top:4px">Recommended: 400×400 JPEG</div></div>
+  </div>`
+  c.innerHTML += sec('Avatar', avatarHTML)
+
+  // About
+  const a = allData['src/content/about.json']
+  c.innerHTML += sec('About', a.paragraphs.map((p,i) => ta('about_'+i, 'Paragraph '+(i+1)+' (use **bold** for black text)', p)).join(''))
+
+  // Experience
+  const e = allData['src/content/experience.json']
+  c.innerHTML += sec('Experience (${e.length} items)', e.map((item, i) =>
+    `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
+      ${tf('exp_'+i+'_period','Period',item.period)}${tf('exp_'+i+'_title','Title',item.title)}${tf('exp_'+i+'_subtitle','Subtitle',item.subtitle)}
+      ${ta('exp_'+i+'_desc','Description',item.description)}
+    </div>`).join(''))
+
+  // Education
   const edu = allData['src/content/education.json']
-  c.innerHTML += section('Education', edu.map((item, i) =>
+  c.innerHTML += sec('Education', edu.map((item, i) =>
     `<div style="border-bottom:1px solid #eee;padding-bottom:12px;margin-bottom:12px">
-      ${['period','title','subtitle'].map(f => `<div class="field"><label>${f[0].toUpperCase()+f.slice(1)}</label><input id="edu_${i}_${f}" value="${esc(item[f])}"></div>`).join('')}
-    </div>`
-  ).join(''))
-  const lang = allData['src/content/languages.json']
-  c.innerHTML += section('Languages', `<div class="field"><label>Languages (comma-separated)</label><input id="lang_items" value="${esc(lang.items.join(', '))}"></div>`)
-  const contact = allData['src/content/contact.json']
-  c.innerHTML += section('Contact', `
-    <div class="field"><label>Email</label><input id="contact_email" value="${esc(contact.email)}"></div>
-    <div class="field"><label>Phone</label><input id="contact_phone" value="${esc(contact.phone)}"></div>
-    <div class="field"><label>Location</label><input id="contact_location" value="${esc(contact.location)}"></div>
-  `)
+      ${tf('edu_'+i+'_period','Period',item.period)}${tf('edu_'+i+'_title','Title',item.title)}${tf('edu_'+i+'_subtitle','Subtitle',item.subtitle)}
+    </div>`).join(''))
+
+  // Languages
+  const l = allData['src/content/languages.json']
+  c.innerHTML += sec('Languages', tf('lang_items','Languages (comma-separated)', l.items.join(', ')))
+
+  // Contact
+  const ct = allData['src/content/contact.json']
+  c.innerHTML += sec('Contact', tf('contact_email','Email',ct.email)+tf('contact_phone','Phone',ct.phone)+tf('contact_location','Location',ct.location))
 }
 
 function renderPhotos() {
   const cert = allData['src/content/certificates.json']
   const container = document.getElementById('photos-section')
   let html = ''
-
   cert.categories.forEach((cat, ci) => {
-    html += `<div class="section"><h2>${esc(cat.name)} (${cat.photos.length})</h2><div class="photo-grid" id="pg_${ci}">`
-    cat.photos.forEach((photo, pi) => {
-      const src = photo.src.replace('/certificates/', '')
+    html += `<div class="section"><h2>${esc(cat.name)} (${cat.photos.length} photos)</h2><div class="photo-grid" id="pg_${ci}">`
+    cat.photos.forEach((p, pi) => {
+      const src = p.src.replace('/certificates/', '')
       html += `<div class="photo-item" id="pi_${ci}_${pi}"><img src="${PHOTO_BASE}/certificates/${src}"><button class="del-btn" onclick="deletePhoto(${ci},${pi})">×</button></div>`
     })
-    html += `</div><div class="upload-area" onclick="document.getElementById('fu_${ci}').click()">Click to add photos to "${esc(cat.name)}"</div>
-    <input type="file" id="fu_${ci}" accept="image/*" multiple onchange="uploadPhotos(${ci}, this.files)" style="display:none">
-    <div id="pending_${ci}"></div></div>`
+    html += `</div><div class="upload-area" onclick="document.getElementById('fu_${ci}').click()">+ Add photos</div>
+    <input type="file" id="fu_${ci}" accept="image/*" multiple onchange="uploadPhotos(${ci},this.files)" style="display:none">
+    <div id="pend_${ci}"></div></div>`
   })
   container.innerHTML = html
 }
 
-// Delete a photo: remove from certificates.json + schedule file deletion
+function uploadAvatar(files) {
+  if (!files[0]) return
+  const file = files[0]
+  if (file.type !== 'image/jpeg') { showToast('Please use JPEG format'); return }
+  const reader = new FileReader()
+  reader.onload = function(e) {
+    _uploads['public/photo.jpeg'] = { content: e.target.result.split(',')[1], encoding: 'base64' }
+    showToast('Avatar selected — click Save All Changes to upload')
+    document.querySelector('.avatar-section img').src = e.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
 function deletePhoto(ci, pi) {
   const cert = allData['src/content/certificates.json']
   const photo = cert.categories[ci].photos[pi]
   const filename = photo.src.replace('/certificates/', '')
-
-  if (!confirm(`Delete ${filename}?`)) return
-
+  if (!confirm('Delete ' + filename + '?')) return
   cert.categories[ci].photos.splice(pi, 1)
-
-  // Mark for deletion on GitHub
-  if (!window._deletes) window._deletes = []
-  window._deletes.push({ path: `public/certificates/${filename}` })
-
+  _deletes.push({ path: 'public/certificates/' + filename })
   renderPhotos()
-  showToast(`Marked "${filename}" for deletion`)
+  showToast('Marked "' + filename + '" for deletion')
 }
 
-// Upload photos
 function uploadPhotos(ci, files) {
   const cert = allData['src/content/certificates.json']
-
   for (const file of files) {
     const ext = file.name.split('.').pop().toLowerCase()
     const reader = new FileReader()
     reader.onload = function(e) {
       const base64 = e.target.result.split(',')[1]
-      const filename = file.name
-
-      // Show pending indicator
-      const pd = document.getElementById('pending_' + ci)
-      const el = document.createElement('span')
-      el.className = 'pending-badge'
-      el.textContent = `+ ${filename}`
-      pd.appendChild(el)
-
-      // Add to certificates.json
-      cert.categories[ci].photos.push({ src: `/certificates/${filename}` })
-
-      // Schedule upload
-      if (!window._uploads) window._uploads = {}
-      window._uploads[`public/certificates/${filename}`] = { content: base64, encoding: 'base64' }
-
-      showToast(`Added "${filename}"`)
-
-      // Refresh photo grid
+      cert.categories[ci].photos.push({ src: '/certificates/' + file.name })
+      _uploads['public/certificates/' + file.name] = { content: base64, encoding: 'base64' }
+      document.getElementById('pend_' + ci).innerHTML += `<span class="badge">+ ${esc(file.name)}</span>`
       renderPhotos()
+      showToast('Added "' + file.name + '"')
     }
     reader.readAsDataURL(file)
   }
@@ -248,95 +237,65 @@ async function saveAll() {
   const btn = document.getElementById('saveBtn')
   btn.disabled = true; btn.textContent = 'Saving...'
 
-  const hero = allData['src/content/hero.json']
-  hero.name = document.getElementById('hero_name').value
-  hero.subtitle = document.getElementById('hero_subtitle').value
-  hero.tags = document.getElementById('hero_tags').value.split(',').map(s => s.trim()).filter(Boolean)
+  // Collect all form data
+  const h = allData['src/content/hero.json']
+  h.name = document.getElementById('hero_name').value
+  h.subtitle = document.getElementById('hero_subtitle').value
+  h.tags = document.getElementById('hero_tags').value.split(',').map(s => s.trim()).filter(Boolean)
+  h.stats.forEach((s, i) => {
+    s.number = document.getElementById('hero_stat_n_'+i).value
+    s.label = document.getElementById('hero_stat_l_'+i).value
+  })
 
-  const about = allData['src/content/about.json']
-  about.paragraphs = about.paragraphs.map((_, i) => document.getElementById(`about_${i}`).value)
+  const a = allData['src/content/about.json']
+  a.paragraphs = a.paragraphs.map((_, i) => document.getElementById('about_'+i).value)
 
-  const exp = allData['src/content/experience.json']
-  exp.forEach((item, i) => {
-    ;['period','title','subtitle'].forEach(f => { item[f] = document.getElementById(`exp_${i}_${f}`).value })
-    item.description = document.getElementById(`exp_${i}_desc`).value
+  const e = allData['src/content/experience.json']
+  e.forEach((item, i) => {
+    item.period = document.getElementById('exp_'+i+'_period').value
+    item.title = document.getElementById('exp_'+i+'_title').value
+    item.subtitle = document.getElementById('exp_'+i+'_subtitle').value
+    item.description = document.getElementById('exp_'+i+'_desc').value
   })
 
   const edu = allData['src/content/education.json']
   edu.forEach((item, i) => {
-    ;['period','title','subtitle'].forEach(f => { item[f] = document.getElementById(`edu_${i}_${f}`).value })
+    item.period = document.getElementById('edu_'+i+'_period').value
+    item.title = document.getElementById('edu_'+i+'_title').value
+    item.subtitle = document.getElementById('edu_'+i+'_subtitle').value
   })
 
-  const lang = allData['src/content/languages.json']
-  lang.items = document.getElementById('lang_items').value.split(',').map(s => s.trim()).filter(Boolean)
+  allData['src/content/languages.json'].items = document.getElementById('lang_items').value.split(',').map(s => s.trim()).filter(Boolean)
 
-  const contact = allData['src/content/contact.json']
-  contact.email = document.getElementById('contact_email').value
-  contact.phone = document.getElementById('contact_phone').value
-  contact.location = document.getElementById('contact_location').value
+  const ct = allData['src/content/contact.json']
+  ct.email = document.getElementById('contact_email').value
+  ct.phone = document.getElementById('contact_phone').value
+  ct.location = document.getElementById('contact_location').value
 
+  // Build payload
   const pw = (localStorage.getItem('admin_pass') || '').trim()
-  const files = Object.entries(allData).map(([path, content]) => ({
+  const textFiles = Object.entries(allData).map(([path, content]) => ({
     path, content: JSON.stringify(content, null, 2) + '\n'
   }))
-
-  try {
-    const res = await fetch('/.netlify/functions/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw, files })
-    })
-    const result = await res.json()
-    if (res.ok) {
-      showToast('Content saved! Site will update in ~1 minute')
-    } else {
-      showToast('Error: ' + (result.error || 'Unknown'))
-    }
-  } catch (e) {
-    showToast('Error: ' + e.message)
-  }
-  btn.disabled = false; btn.textContent = 'Save All Changes'
-}
-
-async function savePhotos() {
-  const btn = document.getElementById('photoSaveBtn')
-  btn.disabled = true; btn.textContent = 'Saving photos...'
-  const pw = (localStorage.getItem('admin_pass') || '').trim()
-
-  // First save the updated certificates.json (with deletions)
-  const certFile = [{
-    path: 'src/content/certificates.json',
-    content: JSON.stringify(allData['src/content/certificates.json'], null, 2) + '\n'
-  }]
-
-  // Upload new photos
-  const uploads = Object.entries(window._uploads || {}).map(([path, data]) => ({
+  const uploadFiles = Object.entries(_uploads).map(([path, data]) => ({
     path, content: data.content, encoding: 'base64'
   }))
 
-  // Delete marked photos
-  const deletes = window._deletes || []
-
-  const allFiles = [...certFile, ...uploads]
-
   try {
     const res = await fetch('/.netlify/functions/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: pw, files: allFiles, deletes })
+      body: JSON.stringify({ password: pw, files: [...textFiles, ...uploadFiles], deletes: _deletes })
     })
     const result = await res.json()
     if (res.ok) {
-      window._uploads = {}
-      window._deletes = []
-      showToast('Photos saved! Site will update in ~1 minute')
+      _uploads = {}; _deletes = []
+      showToast('Saved! Site will update in ~1 minute')
     } else {
       showToast('Error: ' + (result.error || 'Unknown'))
     }
-  } catch (e) {
-    showToast('Error: ' + e.message)
-  }
-  btn.disabled = false; btn.textContent = 'Save Photos'
+  } catch(e) { showToast('Error: ' + e.message) }
+  btn.disabled = false; btn.textContent = 'Save All Changes'
 }
 </script>
 </body>
