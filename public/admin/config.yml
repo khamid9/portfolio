@@ -7,105 +7,117 @@ public_folder: /certificates
 
 collections:
   - name: hero
-    label: Hero Section
-    extension: json
+    label: Hero
     create: false
-    file: src/content/hero.json
-    fields:
-      - { label: Name, name: name, widget: string }
-      - { label: Subtitle, name: subtitle, widget: string }
-      - label: Tags
-        name: tags
-        widget: list
-        field: { label: Tag, name: tag, widget: string }
-      - label: Stats
-        name: stats
-        widget: list
+    files:
+      - name: hero
+        label: Hero Section
+        file: src/content/hero.json
         fields:
-          - { label: Number, name: number, widget: string }
-          - { label: Label, name: label, widget: string }
+          - { label: Name, name: name, widget: string }
+          - { label: Subtitle, name: subtitle, widget: string }
+          - label: Tags
+            name: tags
+            widget: list
+            field: { label: Tag, name: tag, widget: string }
+          - label: Stats
+            name: stats
+            widget: list
+            fields:
+              - { label: Number, name: number, widget: string }
+              - { label: Label, name: label, widget: string }
 
   - name: about
     label: About
-    extension: json
     create: false
-    file: src/content/about.json
-    fields:
-      - label: Paragraphs
-        name: paragraphs
-        widget: list
-        field:
-          label: Paragraph
-          name: text
-          widget: markdown
+    files:
+      - name: about
+        label: About Text
+        file: src/content/about.json
+        fields:
+          - label: Paragraphs
+            name: paragraphs
+            widget: list
+            field:
+              label: Paragraph
+              name: text
+              widget: markdown
 
   - name: experience
     label: Experience
-    extension: json
-    create: true
-    delete: true
-    file: src/content/experience.json
-    fields:
-      - label: Items
-        name: items
-        widget: list
+    create: false
+    files:
+      - name: experience
+        label: Experience Items
+        file: src/content/experience.json
         fields:
-          - { label: Period, name: period, widget: string }
-          - { label: Title, name: title, widget: string }
-          - { label: Subtitle, name: subtitle, widget: string }
-          - { label: Description, name: description, widget: markdown }
+          - label: Items
+            name: items
+            widget: list
+            fields:
+              - { label: Period, name: period, widget: string }
+              - { label: Title, name: title, widget: string }
+              - { label: Subtitle, name: subtitle, widget: string }
+              - { label: Description, name: description, widget: markdown }
 
   - name: education
     label: Education
-    extension: json
-    create: true
-    delete: true
-    file: src/content/education.json
-    fields:
-      - label: Items
-        name: items
-        widget: list
+    create: false
+    files:
+      - name: education
+        label: Education Items
+        file: src/content/education.json
         fields:
-          - { label: Period, name: period, widget: string }
-          - { label: Title, name: title, widget: string }
-          - { label: Subtitle, name: subtitle, widget: string }
+          - label: Items
+            name: items
+            widget: list
+            fields:
+              - { label: Period, name: period, widget: string }
+              - { label: Title, name: title, widget: string }
+              - { label: Subtitle, name: subtitle, widget: string }
 
   - name: certificates
     label: Certificates
-    extension: json
     create: false
-    file: src/content/certificates.json
-    fields:
-      - label: Categories
-        name: categories
-        widget: list
+    files:
+      - name: certificates
+        label: Certificate Categories
+        file: src/content/certificates.json
         fields:
-          - { label: Category Name, name: name, widget: string }
-          - label: Photos
-            name: photos
+          - label: Categories
+            name: categories
             widget: list
             fields:
-              - { label: File, name: src, widget: image }
-              - { label: Alt Text, name: alt, widget: string, required: false }
-              - { label: Gallery (comma-separated paths), name: gallery, widget: string, required: false }
+              - { label: Category Name, name: name, widget: string }
+              - label: Photos
+                name: photos
+                widget: list
+                fields:
+                  - { label: File, name: src, widget: image }
+                  - { label: Alt Text, name: alt, widget: string, required: false }
+                  - { label: Gallery (comma-separated paths), name: gallery, widget: string, required: false }
 
   - name: languages
     label: Languages
-    extension: json
     create: false
-    file: src/content/languages.json
-    fields:
-      - label: Languages
-        name: items
-        widget: list
-        field: { label: Language, name: name, widget: string }
+    files:
+      - name: languages
+        label: Languages List
+        file: src/content/languages.json
+        fields:
+          - label: Languages
+            name: items
+            widget: list
+            field: { label: Language, name: name, widget: string }
 
   - name: contact
     label: Contact
-    extension: json
     create: false
-    file: src/content/contact.json
-    fields:
-      - { label: Email, name: email, widget: string }
-      - { label: Phone, name: phone, widget: string }
-      - { label: Location, name: location, widget: string }
+    files:
+      - name: contact
+        label: Contact Info
+        file: src/content/contact.json
+        fields:
+          - { label: Email, name: email, widget: string }
+          - { label: Phone, name: phone, widget: string }
+          - { label: Location, name: location, widget: string }
