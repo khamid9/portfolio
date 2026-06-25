@@ -1,5 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import './App.css'
+import aboutData from './content/about.json'
+import experienceData from './content/experience.json'
+import educationData from './content/education.json'
+import certData from './content/certificates.json'
+import langData from './content/languages.json'
+import contactData from './content/contact.json'
+import heroData from './content/hero.json'
+
+function renderMarkdown(text) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <span key={i} style={{color:'#000', fontWeight:700}}>{part.slice(2, -2)}</span>
+    }
+    return part
+  })
+}
 
 function useReveal(threshold = 0.1) {
   const ref = useRef(null)
@@ -100,7 +117,7 @@ function TimelineItem({ period, title, subtitle, description, delay }) {
       <time className="timeline-period">{period}</time>
       <h3 className="timeline-title">{title}</h3>
       {subtitle && <p className="timeline-subtitle">{subtitle}</p>}
-      {description && <p className="timeline-description">{description}</p>}
+      {description && <p className="timeline-description">{renderMarkdown(description)}</p>}
     </article>
   )
 }
@@ -111,19 +128,6 @@ function CertPhoto({ src, alt, delay, onClick, orientation = 'portrait' }) {
     <div className={`cert-photo-card fade-up cert-photo-${orientation}`} ref={ref} style={{ animationDelay: `${delay}s` }} onClick={onClick} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') onClick?.() }}>
       <img src={src} alt={alt} className="cert-photo-img" loading="lazy" />
     </div>
-  )
-}
-
-function CertCard({ icon, title, subtitle, delay }) {
-  const ref = useReveal()
-  return (
-    <article className="cert-card fade-up" ref={ref} style={{ animationDelay: `${delay}s` }}>
-      <span className="cert-icon" aria-hidden="true">{icon}</span>
-      <div>
-        <h3 className="cert-title">{title}</h3>
-        {subtitle && <p className="cert-subtitle">{subtitle}</p>}
-      </div>
-    </article>
   )
 }
 
@@ -228,21 +232,17 @@ function App() {
               />
             </div>
             <div className="hero-text">
-              <h1 className="hero-name">Gulzat Tashtanbekova</h1>
-              <p className="hero-subtitle">Language Teacher · French, English &amp; Korean</p>
+              <h1 className="hero-name">{heroData.name}</h1>
+              <p className="hero-subtitle">{heroData.subtitle}</p>
               <div className="tags">
-                <Tag>French</Tag>
-                <Tag>English</Tag>
-                <Tag>Korean</Tag>
-                <Tag>Head of Department</Tag>
-                <Tag>10+ years</Tag>
+                {heroData.tags.map((tag, i) => <Tag key={i}>{tag}</Tag>)}
               </div>
             </div>
           </div>
           <div className="stat-grid">
-            <StatCard number="10+" label="Years teaching" delay={0} />
-            <StatCard number="5" label="Languages spoken" delay={0.1} />
-            <StatCard number="10+" label="Certificates" delay={0.2} />
+            {heroData.stats.map((stat, i) => (
+              <StatCard key={i} number={stat.number} label={stat.label} delay={i * 0.1} />
+            ))}
           </div>
         </section>
 
@@ -251,9 +251,9 @@ function App() {
         <section id="about" className="section" aria-label="About me">
           <SectionLabel>About</SectionLabel>
           <div className="about-text fade-up" ref={aboutRef}>
-            <p>My name is Gulzat. <span style={{color:'#000', fontWeight:700}}>I am an English and French language teacher with more than ten years of teaching experience.</span> In my lessons, I focus on developing all language skills: speaking, listening, reading, and writing, <span style={{color:'#000', fontWeight:700}}>with a particular emphasis on conversational practice.</span></p>
-            <p>I have also taught mental arithmetic, which helps improve memory, concentration, and logical thinking. I continuously enhance my professional skills by studying modern teaching methods and taking professional development courses.</p>
-            <p>I believe that a good teacher should not only share knowledge but also inspire students. <span style={{color:'#000', fontWeight:700}}>What I love most about my work is seeing my students succeed,</span> as their achievements motivate me to keep growing and enjoying my profession even more.</p>
+            {aboutData.paragraphs.map((p, i) => (
+              <p key={i}>{renderMarkdown(p)}</p>
+            ))}
           </div>
         </section>
 
@@ -262,48 +262,16 @@ function App() {
         <section id="experience" className="section" aria-label="Professional experience">
           <SectionLabel>Experience</SectionLabel>
           <div className="timeline">
-            <TimelineItem
-              period="Jan 2025 — Present"
-              title="Head of Foreign Languages Department · French Teacher"
-              subtitle="Summit International School, Bishkek"
-              description="Leading the Foreign Languages Department, teaching French through English medium, developing curriculum and assessment tools, mentoring teachers, organizing cultural events."
-              delay={0}
-            />
-            <TimelineItem
-              period="Sep 2021 — Jan 2025"
-              title="French Teacher"
-              subtitle="United World International School Cambridge, Bishkek"
-              description="Taught French through English medium, developed curriculum and assessment tools, mentored foreign language teachers, organized cultural events and second language week."
-              delay={0.1}
-            />
-            <TimelineItem
-              period="Oct 2020 — Aug 2021"
-              title="Teacher of English, French & Korean"
-              subtitle="Akademya Rosta Educational Center, Issyk-Kul"
-              description="Conducted conversation classes and developed lessons across three languages. Focused on memory training, concentration, and critical thinking skills."
-              delay={0.2}
-            />
-            <TimelineItem
-              period="Aug 2018 — Dec 2019"
-              title="Mental Arithmetic Instructor & Sport Stacking Trainer"
-              subtitle="Cambridge United World International School, Bishkek"
-              description="Trained students for international olympiads in mental arithmetic. Developed visual-spatial thinking, concentration, and cognitive speed through soroban-based methods."
-              delay={0.3}
-            />
-            <TimelineItem
-              period="Aug 2017 — May 2020"
-              title="English Teacher"
-              subtitle="Seytek-Jal Sapat School, Bishkek"
-              description="Taught English using non-translation communicative methods. Prepared students for IGS exams and participated in professional development seminars."
-              delay={0.4}
-            />
-            <TimelineItem
-              period="Mar 2012 — Aug 2015"
-              title="English, Kyrgyz & Russian Teacher · Low & High Level Manager"
-              subtitle="The London School of Languages and Cultures, Bishkek"
-              description={<>Taught local and international students from (<span style={{color:'#000', fontWeight:700}}>JICA/KOIKA</span>). Managed academic programs, evaluated teacher lesson plans, and ran conversation workshops. Developed school curriculum and supervised educational quality.</>}
-              delay={0.5}
-            />
+            {experienceData.map((item, i) => (
+              <TimelineItem
+                key={i}
+                period={item.period}
+                title={item.title}
+                subtitle={item.subtitle}
+                description={item.description}
+                delay={i * 0.1}
+              />
+            ))}
           </div>
         </section>
 
@@ -312,57 +280,52 @@ function App() {
         <section id="education" className="section" aria-label="Education">
           <SectionLabel>Education</SectionLabel>
           <div className="timeline">
-            <TimelineItem
-              period="2006 — 2011"
-              title="Diploma in Linguistics and Intercultural Communication"
-              subtitle="Kyrgyz State University Arabaev · Speciality: Linguist-Translator"
-              delay={0}
-            />
-            <TimelineItem
-              period="01.09.2012 — 12.07.2015"
-              title="Master's Degree Diploma"
-              subtitle="Kyrgyz National University named after J. Balasagyn (KNU) · Faculty: International Law · Specialization: Jurisprudence (Law)"
-              delay={0.15}
-            />
+            {educationData.map((item, i) => (
+              <TimelineItem
+                key={i}
+                period={item.period}
+                title={item.title}
+                subtitle={item.subtitle}
+                delay={i * 0.15}
+              />
+            ))}
           </div>
         </section>
 
         <hr className="divider" aria-hidden="true" />
 
         <section id="certificates" className="section" aria-label="Certificates and awards">
-
-          <h3 className="cert-section-label">Certificate of Appreciation</h3>
-          <div className="cert-photo-grid">
-            <CertPhoto src="/certificates/appreciation-1.jpeg" alt="Certificate of Appreciation" delay={0} onClick={() => openLightbox('/certificates/appreciation-1.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-2.jpeg" alt="Certificate of Appreciation" delay={0.03} onClick={() => openLightbox('/certificates/appreciation-2.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-3.jpeg" alt="Certificate of Appreciation" delay={0.06} onClick={() => openLightbox('/certificates/appreciation-3.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-4.jpeg" alt="Certificate of Appreciation" delay={0.09} onClick={() => openLightbox('/certificates/appreciation-4.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-5.jpeg" alt="Certificate of Appreciation" delay={0.12} onClick={() => openLightbox('/certificates/appreciation-5.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-6.jpeg" alt="Certificate of Appreciation" delay={0.15} onClick={() => openLightbox('/certificates/appreciation-6.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-7.jpeg" alt="Certificate of Appreciation" delay={0.18} onClick={() => openLightbox('/certificates/appreciation-7.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-8.jpeg" alt="Certificate of Appreciation" delay={0.21} onClick={() => openLightbox('/certificates/appreciation-8.jpeg')} />
-            <CertPhoto src="/certificates/appreciation-9.jpeg" alt="Certificate of Appreciation" delay={0.24} onClick={() => openLightbox('/certificates/appreciation-9.jpeg')} />
-          </div>
-
-          <h3 className="cert-section-label">Professional Development</h3>
-          <div className="cert-photo-grid">
-            <CertPhoto src="/certificates/dev-1.jpeg" alt="Professional Development" delay={0} onClick={() => openLightbox('/certificates/dev-1.jpeg')} />
-            <CertPhoto src="/certificates/dev-2.jpeg" alt="Professional Development" delay={0.03} onClick={() => openLightbox('/certificates/dev-2.jpeg')} />
-            <CertPhoto src="/certificates/dev-3.jpeg" alt="Professional Development" delay={0.06} onClick={() => openLightbox('/certificates/dev-3.jpeg')} />
-            <CertPhoto src="/certificates/dev-4.jpeg" alt="Professional Development" delay={0.09} onClick={() => openLightbox('/certificates/dev-4.jpeg')} />
-            <CertPhoto src="/certificates/dev-5.jpeg" alt="Professional Development" delay={0.12} onClick={() => openLightbox('/certificates/dev-5.jpeg')} />
-            <CertPhoto src="/certificates/dev-6.jpeg" alt="Professional Development" delay={0.15} onClick={() => openLightbox('/certificates/dev-6.jpeg')} />
-            <CertPhoto src="/certificates/dev-7.jpeg" alt="Professional Development" delay={0.18} onClick={() => openLightbox('/certificates/dev-7.jpeg')} />
-          </div>
-
-          <h3 className="cert-section-label">Recommendation Letters</h3>
-          <div className="cert-photo-grid">
-            <CertPhoto src="/certificates/rec-1.png" alt="Recommendation Letter" delay={0} onClick={() => openLightbox('/certificates/rec-1.png')} />
-            <CertPhoto src="/certificates/rec-2.png" alt="Recommendation Letter" delay={0.03} onClick={() => openLightbox('/certificates/rec-2.png')} />
-            <CertPhoto src="/certificates/rec-3.png" alt="Recommendation Letter" delay={0.06} onClick={() => openLightbox('/certificates/rec-3.png')} />
-            <CertPhoto src="/certificates/rec-4.png" alt="Recommendation Letter" delay={0.09} onClick={() => openLightbox('/certificates/rec-4.png')} />
-            <CertPhoto src="/certificates/rec-two-1.png" alt="Recommendation Letter (2 pages)" delay={0.12} onClick={() => openGallery([{src:'/certificates/rec-two-1.png',alt:'Recommendation Letter p.1'},{src:'/certificates/rec-two-2.png',alt:'Recommendation Letter p.2'}], 0)} />
-          </div>
+          {certData.categories.map((cat, ci) => (
+            <div key={ci}>
+              <h3 className="cert-section-label">{cat.name}</h3>
+              <div className="cert-photo-grid">
+                {cat.photos.map((photo, pi) => {
+                  const delay = (pi + ci * 10) * 0.03
+                  if (photo.gallery) {
+                    const images = photo.gallery.split(',').map(s => ({ src: s.trim(), alt: photo.alt || cat.name }))
+                    return (
+                      <CertPhoto
+                        key={pi}
+                        src={photo.src}
+                        alt={photo.alt || cat.name}
+                        delay={delay}
+                        onClick={() => openGallery(images, 0)}
+                      />
+                    )
+                  }
+                  return (
+                    <CertPhoto
+                      key={pi}
+                      src={photo.src}
+                      alt={photo.alt || cat.name}
+                      delay={delay}
+                      onClick={() => openLightbox(photo.src)}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </section>
 
         <hr className="divider" aria-hidden="true" />
@@ -370,11 +333,7 @@ function App() {
         <section id="languages" className="section" aria-label="Languages spoken">
           <SectionLabel>Languages</SectionLabel>
           <div className="languages">
-            <LangPill name="Kyrgyz" />
-            <LangPill name="Russian" />
-            <LangPill name="English" />
-            <LangPill name="French" />
-            <LangPill name="Korean" />
+            {langData.items.map((lang, i) => <LangPill key={i} name={lang} />)}
           </div>
         </section>
 
@@ -384,13 +343,13 @@ function App() {
           <SectionLabel>Contact</SectionLabel>
           <div className="contact-card fade-up" ref={contactRef}>
             <ContactRow icon={mailIcon}>
-              <a href="mailto:tashtanbekovagulzat2@gmail.com">tashtanbekovagulzat2@gmail.com</a>
+              <a href={`mailto:${contactData.email}`}>{contactData.email}</a>
             </ContactRow>
             <ContactRow icon={phoneIcon}>
-              <span>+996 999 003 666</span>
+              <span>{contactData.phone}</span>
             </ContactRow>
             <ContactRow icon={mapIcon}>
-              <span>Bishkek, Kyrgyzstan</span>
+              <span>{contactData.location}</span>
             </ContactRow>
           </div>
         </section>
